@@ -10,6 +10,13 @@ using namespace std;
 enum TokenType
 {
     T_INT,
+    T_FLOAT,
+    T_DOUBLE,
+    T_STRING,
+    T_BOOL,
+    T_CHAR,
+    T_TRUE,   
+    T_FALSE,
     T_ID,
     T_NUM,
     T_IF,
@@ -44,12 +51,6 @@ private:
     string src;
     size_t pos;
     int line;
-    /*
-    It hold positive values.
-    In C++, size_t is an unsigned integer data type used to represent the
-    size of objects in bytes or indices, especially when working with memory-related
-    functions, arrays, and containers like vector or string. You can also use the int data type but size_t is recommended one
-    */
 
 public:
     Lexer(const string &src)
@@ -73,16 +74,32 @@ public:
                 pos++;
                 continue;
             }
+
             if (isdigit(current))
             {
                 tokens.push_back(Token{T_NUM, consumeNumber(), line});
                 continue;
             }
+
             if (isalpha(current))
             {
                 string word = consumeWord();
                 if (word == "int")
                     tokens.push_back(Token{T_INT, word, line});
+                else if (word == "float")
+                    tokens.push_back(Token{T_FLOAT, word, line});
+                else if (word == "double")
+                    tokens.push_back(Token{T_DOUBLE, word, line});
+                else if (word == "string")
+                    tokens.push_back(Token{T_STRING, word, line});
+                else if (word == "bool")
+                    tokens.push_back(Token{T_BOOL, word, line});
+                else if (word == "true")
+                    tokens.push_back(Token{T_TRUE, word, line});
+                else if (word == "false")
+                    tokens.push_back(Token{T_FALSE, word, line});
+                else if (word == "char")
+                    tokens.push_back(Token{T_CHAR, word, line});
                 else if (word == "if")
                     tokens.push_back(Token{T_IF, word, line});
                 else if (word == "else")
@@ -91,6 +108,18 @@ public:
                     tokens.push_back(Token{T_RETURN, word, line});
                 else
                     tokens.push_back(Token{T_ID, word, line});
+                continue;
+            }
+
+            if (current == '"')
+            {
+                tokens.push_back(Token{T_STRING, consumeStringLiteral(), line});
+                continue;
+            }
+
+            if (current == '\'')
+            {
+                tokens.push_back(Token{T_CHAR, consumeCharLiteral(), line});
                 continue;
             }
 
@@ -135,7 +164,7 @@ public:
             }
             pos++;
         }
-        tokens.push_back(Token{T_EOF, "",line});
+        tokens.push_back(Token{T_EOF, "", line});
         return tokens;
     }
 
@@ -153,6 +182,38 @@ public:
         while (pos < src.size() && isalnum(src[pos]))
             pos++;
         return src.substr(start, pos - start);
+    }
+
+    string consumeStringLiteral()
+    {
+        pos++; // Skip the opening quote
+        size_t start = pos;
+        while (pos < src.size() && src[pos] != '"')
+            pos++;
+        pos++;                                     // Skip the closing quote
+        return src.substr(start, pos - start - 1); // Exclude quotes
+    }
+
+    string consumeCharLiteral()
+    {
+        pos++; // Skip the opening single quote
+        if (pos >= src.size() || src[pos] == '\'')
+        {
+            cout << "Syntax error: empty or invalid char literal at line " << line << endl;
+            exit(1);
+        }
+
+        char literal = src[pos];
+        pos++;
+
+        if (pos >= src.size() || src[pos] != '\'')
+        {
+            cout << "Syntax error: expected closing single quote at line " << line << endl;
+            exit(1);
+        }
+
+        pos++; // Skip the closing single quote
+        return string(1, literal);
     }
 };
 
@@ -181,7 +242,7 @@ private:
 
     void parseStatement()
     {
-        if (tokens[pos].type == T_INT)
+        if (tokens[pos].type == T_INT || tokens[pos].type == T_FLOAT || tokens[pos].type == T_DOUBLE || tokens[pos].type == T_STRING || tokens[pos].type == T_BOOL || tokens[pos].type == T_CHAR)
         {
             parseDeclaration();
         }
@@ -217,11 +278,20 @@ private:
         }
         expect(T_RBRACE);
     }
+
     void parseDeclaration()
     {
-        expect(T_INT);
-        expect(T_ID);
-        expect(T_SEMICOLON);
+        if (tokens[pos].type == T_INT || tokens[pos].type == T_FLOAT || tokens[pos].type == T_DOUBLE || tokens[pos].type == T_STRING || tokens[pos].type == T_BOOL || tokens[pos].type == T_CHAR)
+        {
+            pos++; // Skip the type
+            expect(T_ID);
+            expect(T_SEMICOLON);
+        }
+        else
+        {
+            cout << "Syntax error: expected a data type but found " << tokens[pos].value << " on line " << tokens[pos].line << endl;
+            exit(1);
+        }
     }
 
     void parseAssignment()
@@ -264,7 +334,7 @@ private:
         if (tokens[pos].type == T_GT)
         {
             pos++;
-            parseExpression(); // After relational operator, parse the next expression
+            parseExpression();
         }
     }
 
@@ -283,6 +353,10 @@ private:
         if (tokens[pos].type == T_NUM || tokens[pos].type == T_ID)
         {
             pos++;
+        }
+        else if (tokens[pos].type == T_STRING || tokens[pos].type == T_CHAR || tokens[pos].type == T_TRUE || tokens[pos].type == T_FALSE)
+        {
+            pos++; // Handling string, char, and boolean literals in expressions
         }
         else if (tokens[pos].type == T_LPAREN)
         {
@@ -311,6 +385,7 @@ private:
     }
 };
 
+
 int main(int argc, char *argv[])
 {
     ifstream file(argv[1]);
@@ -331,7 +406,7 @@ int main(int argc, char *argv[])
     cout << "Complete code" << endl;
     cout << input << endl;
 
-    //Main Parsing
+    // Main Parsing
 
     Lexer lexer(input);
     vector<Token> tokens = lexer.tokenize();
