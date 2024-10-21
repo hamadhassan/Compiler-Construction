@@ -1,9 +1,16 @@
-bool a;
-        a = true1;
-        int b;
-        b = a + 10;
-        if (b > 10){
-            return b;
-        } else {
-            return 0;
-        }
+int a;
+int b;
+double c=5.89;
+
+a=1;
+b=1;
+
+str abc;
+abc = "ali";
+
+agar(a == b) {
+    a = a + 1;
+}
+function add(int a) {
+    a = a + 1;
+}
