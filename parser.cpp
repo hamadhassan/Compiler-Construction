@@ -305,19 +305,24 @@ private:
     }
 };
 
-int main()
+int main(int argc, char *argv[])
 {
-    string input = R"(
-        int a;
-        a = 5;
-        int b;
-        b = a + 10;
-        if (b > 10) {
-            return b;
-        } else {
-            return 0;
-        }
-    )";
+    ifstream file(argv[1]);
+    if (!file)
+    {
+        cerr << "File " << argv[1] << " not found." << endl;
+        return 1;
+    }
+    string input;
+    string line;
+    while (getline(file, line))
+    {
+        cout << line << endl;
+        input.append(line);
+    }
+    file.close();
+    cout<<"Complete code"<<endl;
+    cout<<input<<endl;
 
     Lexer lexer(input);
     vector<Token> tokens = lexer.tokenize();
