@@ -1,16 +1,17 @@
-int a;
-int b;
+int a=1;
+int b=1;
 double c=5.89;
-
-a=1;
-b=1;
-
-str abc;
-abc = "ali";
-
-agar(a == b) {
-    a = a + 1;
+string abc = "ali";
+//abc
+if (a!=b)
+{
+    print("abc");
 }
-function add(int a) {
-    a = a + 1;
+else
+{
+    print("ABC");
+}
+while(a==b)
+{
+    print("abc");
 }

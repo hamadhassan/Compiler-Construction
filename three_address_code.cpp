@@ -5,6 +5,7 @@
 #include <map>
 #include <fstream>
 #include <unordered_map>
+#include <sstream>
 
 using namespace std;
 
@@ -69,9 +70,9 @@ enum TokenType
     T_COLON,     // :
     T_EOF,       // End of file
 
-    // Custom tokens (if needed for your specific language or project)
-    T_AGAR, // Custom keyword
-    T_PRINT // Custom print function
+    // Custom tokens
+    T_AGAR,
+    T_PRINT
 };
 
 struct Token
@@ -105,7 +106,7 @@ public:
     {
         if (table.find(name) != table.end())
         {
-            return false; // Symbol already exists
+            return false;
         }
         table[name] = symbol;
         return true;
@@ -115,7 +116,7 @@ public:
     {
         if (table.find(name) == table.end())
         {
-            return false; // Symbol doesn't exist
+            return false;
         }
         table[name].value = value;
         return true;
@@ -172,6 +173,93 @@ public:
     }
 };
 
+// New struct for Three Address Code
+struct TACEntry
+{
+    string op;     // Operator or operation type
+    string arg1;   // First argument
+    string arg2;   // Second argument
+    string result; // Result variable
+
+    string toString() const
+    {
+        if (op == "copy")
+        {
+            return result + " = " + arg1;
+        }
+        else if (op == "label")
+        {
+            return arg1 + ":";
+        }
+        else if (op == "goto")
+        {
+            return "goto " + arg1;
+        }
+        else if (op == "if")
+        {
+            return "if " + arg1 + " goto " + result;
+        }
+        else
+        {
+            return result + " = " + arg1 + " " + op + " " + arg2;
+        }
+    }
+};
+
+class ThreeAddressCode
+{
+private:
+    vector<TACEntry> code;
+    int tempCount = 0;
+    int labelCount = 0;
+
+public:
+    string newTemp()
+    {
+        return "t" + to_string(++tempCount);
+    }
+
+    string newLabel()
+    {
+        return "L" + to_string(++labelCount);
+    }
+
+    void emit(const string &op, const string &arg1, const string &arg2, const string &result)
+    {
+        code.push_back({op, arg1, arg2, result});
+    }
+
+    void emitCopy(const string &result, const string &arg1)
+    {
+        emit("copy", arg1, "", result);
+    }
+
+    void emitLabel(const string &label)
+    {
+        emit("label", label, "", "");
+    }
+
+    void emitGoto(const string &label)
+    {
+        emit("goto", label, "", "");
+    }
+
+    void emitIf(const string &condition, const string &label)
+    {
+        emit("if", condition, "", label);
+    }
+
+    void display()
+    {
+        cout << "\nThree Address Code:" << endl;
+        cout << "-------------------" << endl;
+        for (const auto &entry : code)
+        {
+            cout << entry.toString() << endl;
+        }
+    }
+};
+
 class Lexer
 {
 private:
@@ -180,12 +268,7 @@ private:
     int line;
 
 public:
-    Lexer(const string &src)
-    {
-        this->src = src;
-        this->pos = 0;
-        this->line = 1;
-    }
+    Lexer(const string &src) : src(src), pos(0), line(1) {}
 
     vector<Token> tokenize()
     {
@@ -194,7 +277,6 @@ public:
         {
             char current = src[pos];
 
-            // Handle whitespace and new lines
             if (isspace(current))
             {
                 if (current == '\n')
@@ -203,14 +285,12 @@ public:
                 continue;
             }
 
-            // Handle numeric literals
             if (isdigit(current))
             {
                 tokens.push_back(Token{T_NUM, consumeNumber(), line});
                 continue;
             }
 
-            // Handle keywords and identifiers
             if (isalpha(current))
             {
                 string word = consumeWord();
@@ -257,32 +337,28 @@ public:
                 continue;
             }
 
-            // Handle string literals
             if (current == '"')
             {
                 tokens.push_back(Token{T_STRING, consumeStringLiteral(), line});
                 continue;
             }
 
-            // Handle char literals
             if (current == '\'')
             {
                 tokens.push_back(Token{T_CHAR, consumeCharLiteral(), line});
                 continue;
             }
 
-            // Handle comments
             if (current == '/' && peekNext() == '/')
             {
                 consumeComment();
                 continue;
             }
 
-            // Handle operators and other symbols
             switch (current)
             {
             case '=':
-                if (peekNext() == '=') // Handle ==
+                if (peekNext() == '=')
                 {
                     pos++;
                     tokens.push_back(Token{T_EQUAL_EQUAL, "==", line});
@@ -293,7 +369,7 @@ public:
                 }
                 break;
             case '!':
-                if (peekNext() == '=') // Handle !=
+                if (peekNext() == '=')
                 {
                     pos++;
                     tokens.push_back(Token{T_NOT_EQUAL, "!=", line});
@@ -305,7 +381,7 @@ public:
                 }
                 break;
             case '&':
-                if (peekNext() == '&') // Handle &&
+                if (peekNext() == '&')
                 {
                     pos++;
                     tokens.push_back(Token{T_AND, "&&", line});
@@ -317,7 +393,7 @@ public:
                 }
                 break;
             case '|':
-                if (peekNext() == '|') // Handle ||
+                if (peekNext() == '|')
                 {
                     pos++;
                     tokens.push_back(Token{T_OR, "||", line});
@@ -329,7 +405,7 @@ public:
                 }
                 break;
             case '>':
-                if (peekNext() == '=') // Handle >=
+                if (peekNext() == '=')
                 {
                     pos++;
                     tokens.push_back(Token{T_GREATER_EQUAL, ">=", line});
@@ -340,7 +416,7 @@ public:
                 }
                 break;
             case '<':
-                if (peekNext() == '=') // Handle <=
+                if (peekNext() == '=')
                 {
                     pos++;
                     tokens.push_back(Token{T_LESS_EQUAL, "<=", line});
@@ -419,8 +495,14 @@ public:
         size_t start = pos;
         while (pos < src.size() && src[pos] != '"')
             pos++;
+        if (pos >= src.size())
+        {
+            cout << "Unterminated string at line " << line << endl;
+            exit(1);
+        }
+        string str = src.substr(start, pos - start);
         pos++;
-        return src.substr(start, pos - start - 1);
+        return str;
     }
 
     string consumeCharLiteral()
@@ -428,30 +510,25 @@ public:
         pos++;
         if (pos >= src.size() || src[pos] == '\'')
         {
-            cout << "Syntax error: empty or invalid char literal at line " << line << endl;
+            cout << "Invalid char literal at line " << line << endl;
             exit(1);
         }
-
-        char literal = src[pos];
+        char c = src[pos];
         pos++;
-
         if (pos >= src.size() || src[pos] != '\'')
         {
-            cout << "Syntax error: expected closing single quote at line " << line << endl;
+            cout << "Unterminated char literal at line " << line << endl;
             exit(1);
         }
-
         pos++;
-        return string(1, literal);
+        return string(1, c);
     }
 
     void consumeComment()
     {
         pos += 2;
         while (pos < src.size() && src[pos] != '\n')
-        {
             pos++;
-        }
     }
 
     char peekNext()
@@ -459,13 +536,16 @@ public:
         return pos + 1 < src.size() ? src[pos + 1] : '\0';
     }
 };
-
+// Modify the Parser class to include TAC generation
 class Parser
 {
 private:
     vector<Token> tokens;
     size_t pos;
     SymbolTable symbolTable;
+    ThreeAddressCode tac;
+
+    // ... [Keep existing private members]
 
 public:
     Parser(const vector<Token> &tokens) : tokens(tokens), pos(0) {}
@@ -478,10 +558,265 @@ public:
         }
         cout << "Parsing completed successfully! No Syntax Error" << endl;
         symbolTable.display();
+        tac.display();
     }
 
 private:
+    // Modified parsing methods to generate TAC
+
+    void parseDeclaration()
+    {
+        TokenType varType = tokens[pos].type;
+        expect(varType);
+
+        Token idToken = tokens[pos];
+        expect(T_ID);
+        expect(T_ASSIGN);
+
+        Token valueToken = tokens[pos];
+        string exprResult = parseExpression();
+
+        Symbol symbol(varType, idToken.value, valueToken.value, idToken.line);
+        if (!symbolTable.insert(idToken.value, symbol))
+        {
+            cout << "Error: Variable '" << idToken.value << "' already declared at line "
+                 << idToken.line << endl;
+            exit(1);
+        }
+
+        tac.emitCopy(idToken.value, exprResult);
+        expect(T_SEMICOLON);
+    }
+
+    void parseAssignment()
+    {
+        Token idToken = tokens[pos];
+        expect(T_ID);
+
+        Symbol *symbol = symbolTable.lookup(idToken.value);
+        if (!symbol)
+        {
+            cout << "Error: Variable '" << idToken.value << "' not declared at line "
+                 << idToken.line << endl;
+            exit(1);
+        }
+
+        expect(T_ASSIGN);
+        string exprResult = parseExpression();
+
+        tac.emitCopy(idToken.value, exprResult);
+        symbolTable.update(idToken.value, tokens[pos - 1].value);
+        expect(T_SEMICOLON);
+    }
+
+    string parseExpression()
+    {
+        string left = parseTerm();
+
+        while (pos < tokens.size() &&
+               (tokens[pos].type == T_PLUS ||
+                tokens[pos].type == T_MINUS ||
+                tokens[pos].type == T_EQUAL_EQUAL ||
+                tokens[pos].type == T_NOT_EQUAL ||
+                tokens[pos].type == T_LESS ||
+                tokens[pos].type == T_GREATER ||
+                tokens[pos].type == T_LESS_EQUAL ||
+                tokens[pos].type == T_GREATER_EQUAL))
+        {
+
+            Token opToken = tokens[pos];
+            expect(tokens[pos].type);
+            string right = parseTerm();
+
+            string temp = tac.newTemp();
+            tac.emit(opToken.value, left, right, temp);
+            left = temp;
+        }
+
+        return left;
+    }
+
+    string parseTerm()
+    {
+        string left = parseFactor();
+
+        while (pos < tokens.size() &&
+               (tokens[pos].type == T_MUL || tokens[pos].type == T_DIV))
+        {
+            Token opToken = tokens[pos];
+            expect(tokens[pos].type);
+            string right = parseFactor();
+
+            string temp = tac.newTemp();
+            tac.emit(opToken.value, left, right, temp);
+            left = temp;
+        }
+
+        return left;
+    }
+
+    string parseFactor()
+    {
+        if (tokens[pos].type == T_NUM)
+        {
+            string value = tokens[pos].value;
+            expect(T_NUM);
+            return value;
+        }
+        else if (tokens[pos].type == T_ID)
+        {
+            string id = tokens[pos].value;
+            expect(T_ID);
+            return id;
+        }
+        else if (tokens[pos].type == T_LPAREN)
+        {
+            expect(T_LPAREN);
+            string result = parseExpression();
+            expect(T_RPAREN);
+            return result;
+        }
+        else if (tokens[pos].type == T_TRUE || tokens[pos].type == T_FALSE)
+        {
+            string value = tokens[pos].value;
+            expect(tokens[pos].type);
+            return value;
+        }
+        else if (tokens[pos].type == T_STRING)
+        {
+            string value = tokens[pos].value;
+            expect(T_STRING);
+            return "\"" + value + "\"";
+        }
+        else
+        {
+            cout << "Syntax error in factor on line " << tokens[pos].line << endl;
+            exit(1);
+        }
+    }
+
+    void parseIfStatement()
+    {
+        expect(T_IF);
+        expect(T_LPAREN);
+        string condition = parseExpression();
+        expect(T_RPAREN);
+
+        string elseLabel = tac.newLabel();
+        string endLabel = tac.newLabel();
+
+        tac.emitIf(condition, elseLabel);
+
+        expect(T_LBRACE);
+        while (tokens[pos].type != T_RBRACE)
+        {
+            parseStatement();
+        }
+        expect(T_RBRACE);
+
+        tac.emitGoto(endLabel);
+        tac.emitLabel(elseLabel);
+
+        if (tokens[pos].type == T_ELSE)
+        {
+            expect(T_ELSE);
+            expect(T_LBRACE);
+            while (tokens[pos].type != T_RBRACE)
+            {
+                parseStatement();
+            }
+            expect(T_RBRACE);
+        }
+
+        tac.emitLabel(endLabel);
+    }
+
+    void parseWhileStatement()
+    {
+        expect(T_WHILE);
+
+        string startLabel = tac.newLabel();
+        string endLabel = tac.newLabel();
+        tac.emitLabel(startLabel);
+
+        expect(T_LPAREN);
+        string condition = parseExpression();
+        expect(T_RPAREN);
+
+        tac.emitIf(condition, endLabel);
+
+        expect(T_LBRACE);
+        while (tokens[pos].type != T_RBRACE)
+        {
+            parseStatement();
+        }
+        expect(T_RBRACE);
+
+        tac.emitGoto(startLabel);
+        tac.emitLabel(endLabel);
+    }
+
+    void expect(TokenType type)
+    {
+        if (tokens[pos].type != type)
+        {
+            cout << "Syntax error: expected token of type " << type << ", but got " << tokens[pos].value << " on line: " << tokens[pos].line << endl;
+            exit(1);
+        }
+        pos++;
+    }
+
     void parseStatement()
+    {
+        if (tokens[pos].type == T_INT || tokens[pos].type == T_FLOAT || tokens[pos].type == T_DOUBLE ||
+            tokens[pos].type == T_STRING || tokens[pos].type == T_BOOL || tokens[pos].type == T_CHAR)
+        {
+            parseDeclaration();
+        }
+        else if (tokens[pos].type == T_ID)
+        {
+            parseAssignment();
+        }
+        else if (tokens[pos].type == T_IF)
+        {
+            parseIfStatement();
+        }
+        else if (tokens[pos].type == T_WHILE)
+        {
+            parseWhileStatement();
+        }
+        else if (tokens[pos].type == T_FOR)
+        {
+            parseForStatement();
+        }
+        else if (tokens[pos].type == T_SWITCH)
+        {
+            parseSwitchStatement();
+        }
+        else if (tokens[pos].type == T_RETURN)
+        {
+            parseReturnStatement();
+        }
+        else if (tokens[pos].type == T_PRINT)
+        {
+            parsePrintStatement();
+        }
+        else if (tokens[pos].type == T_LBRACE)
+        {
+            parseBlock();
+        }
+        else
+        {
+            cout << "Syntax error: unexpected token " << tokens[pos].value << " on line " << tokens[pos].line << endl;
+            exit(1);
+        }
+    }
+    
+
+
+    //-------------------
+
+     void parseStatement()
     {
         if (tokens[pos].type == T_INT || tokens[pos].type == T_FLOAT || tokens[pos].type == T_DOUBLE ||
             tokens[pos].type == T_STRING || tokens[pos].type == T_BOOL || tokens[pos].type == T_CHAR)
@@ -701,55 +1036,6 @@ private:
         symbolTable.update(idToken.value, valueToken.value);
 
         expect(T_SEMICOLON);
-    }
-
-    void parseExpression()
-    {
-        // Parse the first operand (numbers, identifiers, booleans, or strings)
-        if (tokens[pos].type == T_NUM ||
-            tokens[pos].type == T_ID ||
-            tokens[pos].type == T_TRUE ||
-            tokens[pos].type == T_FALSE ||
-            tokens[pos].type == T_STRING) // Handles strings
-        {
-            expect(tokens[pos].type);
-        }
-        else
-        {
-            cout << "Syntax error in expression on line " << tokens[pos].line << endl;
-            exit(1);
-        }
-
-        // Handle binary and comparison operations
-        while (pos < tokens.size() &&
-               (tokens[pos].type == T_PLUS ||
-                tokens[pos].type == T_MINUS ||
-                tokens[pos].type == T_MUL ||
-                tokens[pos].type == T_DIV ||
-                tokens[pos].type == T_EQUAL_EQUAL ||  
-                tokens[pos].type == T_NOT_EQUAL ||    
-                tokens[pos].type == T_LESS ||         
-                tokens[pos].type == T_GREATER ||      
-                tokens[pos].type == T_LESS_EQUAL ||   
-                tokens[pos].type == T_GREATER_EQUAL)) 
-        {
-            expect(tokens[pos].type); // Consume operator
-
-            // Parse the next operand after the operator
-            if (tokens[pos].type == T_NUM ||
-                tokens[pos].type == T_ID ||
-                tokens[pos].type == T_TRUE ||
-                tokens[pos].type == T_FALSE ||
-                tokens[pos].type == T_STRING) // Handles strings
-            {
-                expect(tokens[pos].type);
-            }
-            else
-            {
-                cout << "Syntax error in expression on line " << tokens[pos].line << endl;
-                exit(1);
-            }
-        }
     }
 
     void expect(TokenType type)
