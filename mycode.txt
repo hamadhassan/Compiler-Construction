@@ -1,9 +1,8 @@
 int a=1;
 int b=1;
 double c=5.89;
-string abc = "ali";
 //abc
-if (a!=b)
+if (a==b)
 {
     print("abc");
 }
@@ -15,3 +14,6 @@ while(a==b)
 {
     print("abc");
 }
+//for(int i=0;i<5;i++){
+//     print("abc");
+//}

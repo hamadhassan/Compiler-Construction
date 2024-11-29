@@ -82,96 +82,6 @@ struct Token
     Token(TokenType type, const string &value, int line) : type(type), value(value), line(line) {}
 };
 
-struct Symbol
-{
-    TokenType type;
-    string name;
-    string value;
-    int line;
-
-    Symbol() : type(T_INT), name(""), value(""), line(0) {}
-
-    Symbol(TokenType t, const string &n, const string &v, int l)
-        : type(t), name(n), value(v), line(l) {}
-};
-
-class SymbolTable
-{
-private:
-    unordered_map<string, Symbol> table;
-
-public:
-    bool insert(const string &name, const Symbol &symbol)
-    {
-        if (table.find(name) != table.end())
-        {
-            return false; // Symbol already exists
-        }
-        table[name] = symbol;
-        return true;
-    }
-
-    bool update(const string &name, const string &value)
-    {
-        if (table.find(name) == table.end())
-        {
-            return false; // Symbol doesn't exist
-        }
-        table[name].value = value;
-        return true;
-    }
-
-    Symbol *lookup(const string &name)
-    {
-        auto it = table.find(name);
-        if (it != table.end())
-        {
-            return &(it->second);
-        }
-        return nullptr;
-    }
-
-    void display()
-    {
-        cout << "\nSymbol Table Contents:" << endl;
-        cout << "Name\tType\tValue\tLine" << endl;
-        cout << "--------------------------------" << endl;
-        for (const auto &entry : table)
-        {
-            const Symbol &symbol = entry.second;
-            cout << symbol.name << "\t";
-
-            string typeStr;
-            switch (symbol.type)
-            {
-            case T_INT:
-                typeStr = "int";
-                break;
-            case T_FLOAT:
-                typeStr = "float";
-                break;
-            case T_DOUBLE:
-                typeStr = "double";
-                break;
-            case T_STRING:
-                typeStr = "string";
-                break;
-            case T_BOOL:
-                typeStr = "bool";
-                break;
-            case T_CHAR:
-                typeStr = "char";
-                break;
-            default:
-                typeStr = "unknown";
-                break;
-            }
-
-            cout << typeStr << "\t" << symbol.value << "\t" << symbol.line << endl;
-        }
-    }
-};
-
 class Lexer
 {
 private:
@@ -460,15 +370,62 @@ public:
     }
 };
 
+class SymbolTable {
+public:
+
+    void declareVariable(const string &name, const string &type) {
+        if (symbolTable.find(name) != symbolTable.end()) {
+            throw runtime_error("Semantic error: Variable '" + name + "' is already declared.");
+        }
+        symbolTable[name] = type;
+    }
+
+    string getVariableType(const string &name) {
+        if (symbolTable.find(name) == symbolTable.end()) {
+            throw runtime_error("Semantic error: Variable '" + name + "' is not declared.");
+        }
+        return symbolTable[name];
+    }
+
+    bool isDeclared(const string &name) const {
+        return symbolTable.find(name) != symbolTable.end();
+    }
+
+private:
+    map<string, string> symbolTable;
+};
+
+class IntermediateCodeGnerator {
+public:
+    vector<string> instructions;
+    int tempCount = 0;
+
+    string newTemp() {
+        return "t" + to_string(tempCount++);
+    }
+
+    void addInstruction(const string &instr) {
+        instructions.push_back(instr);
+    }
+
+    void printInstructions() {
+        for (const auto &instr : instructions) {
+            cout << instr << endl;
+        }
+    }
+};
+
 class Parser
 {
 private:
     vector<Token> tokens;
     size_t pos;
-    SymbolTable symbolTable;
+    SymbolTable &symTable;
+    IntermediateCodeGnerator &icg;
 
 public:
-    Parser(const vector<Token> &tokens) : tokens(tokens), pos(0) {}
+    Parser(const vector<Token> &tokens, SymbolTable &symTable, IntermediateCodeGnerator &icg)
+        : tokens(tokens), pos(0), symTable(symTable), icg(icg) {}
 
     void parseProgram()
     {
@@ -477,7 +434,7 @@ public:
             parseStatement();
         }
         cout << "Parsing completed successfully! No Syntax Error" << endl;
-        symbolTable.display();
+        icg.printInstructions();
     }
 
 private:
@@ -531,14 +488,23 @@ private:
     {
         expect(T_WHILE);
         expect(T_LPAREN);
-        parseExpression();
+        string condition = parseExpression();
         expect(T_RPAREN);
         expect(T_LBRACE);
+
+        string startLabel = icg.newTemp();
+        string endLabel = icg.newTemp();
+        icg.addInstruction(startLabel + ":");
+
+        icg.addInstruction("ifFalse " + condition + " goto " + endLabel);
 
         while (tokens[pos].type != T_RBRACE)
         {
             parseStatement();
         }
+
+        icg.addInstruction("goto " + startLabel);
+        icg.addInstruction(endLabel + ":");
 
         expect(T_RBRACE);
     }
@@ -549,22 +515,30 @@ private:
         expect(T_LPAREN);
 
         parseDeclaration();
-        expect(T_SEMICOLON);    
-        cout<<"Compile"<<endl;
-
-
-        parseExpression();
         expect(T_SEMICOLON);
 
-        parseAssignment();
+        string condition = parseExpression();
+        expect(T_SEMICOLON);
+
+        string increment = parseAssignment();
         expect(T_RPAREN);
 
         expect(T_LBRACE);
+
+        string startLabel = icg.newTemp();
+        string endLabel = icg.newTemp();
+        icg.addInstruction(startLabel + ":");
+
+        icg.addInstruction("ifFalse " + condition + " goto " + endLabel);
 
         while (tokens[pos].type != T_RBRACE)
         {
             parseStatement();
         }
+
+        icg.addInstruction(increment);
+        icg.addInstruction("goto " + startLabel);
+        icg.addInstruction(endLabel + ":");
 
         expect(T_RBRACE);
     }
@@ -607,14 +581,22 @@ private:
     {
         expect(T_IF);
         expect(T_LPAREN);
-        parseExpression();
+        string condition = parseExpression();
         expect(T_RPAREN);
         expect(T_LBRACE);
+
+        string elseLabel = icg.newTemp();
+        string endLabel = icg.newTemp();
+
+        icg.addInstruction("ifFalse " + condition + " goto " + elseLabel);
 
         while (tokens[pos].type != T_RBRACE)
         {
             parseStatement();
         }
+
+        icg.addInstruction("goto " + endLabel);
+        icg.addInstruction(elseLabel + ":");
 
         expect(T_RBRACE);
 
@@ -628,15 +610,19 @@ private:
             }
             expect(T_RBRACE);
         }
+
+        icg.addInstruction(endLabel + ":");
     }
 
     void parsePrintStatement()
     {
         expect(T_PRINT);
         expect(T_LPAREN);
-        parseExpression();
+        string value = parseExpression();
         expect(T_RPAREN);
         expect(T_SEMICOLON);
+
+        icg.addInstruction("print " + value);
     }
 
     void parseBlock()
@@ -661,30 +647,24 @@ private:
         expect(T_ASSIGN);
 
         // Store value token
-        Token valueToken = tokens[pos];
-        parseExpression();
+        string value = parseExpression();
 
         // Create and insert symbol
-        Symbol symbol(varType, idToken.value, valueToken.value, idToken.line);
-        if (!symbolTable.insert(idToken.value, symbol))
-        {
-            cout << "Error: Variable '" << idToken.value << "' already declared at line "
-                 << idToken.line << endl;
-            exit(1);
-        }
+        symTable.declareVariable(idToken.value, value);
+
+        icg.addInstruction(idToken.value + " = " + value);
 
         expect(T_SEMICOLON);
     }
 
-    void parseAssignment()
+    string parseAssignment()
     {
         // Store identifier token
         Token idToken = tokens[pos];
         expect(T_ID);
 
         // Check if variable exists
-        Symbol *symbol = symbolTable.lookup(idToken.value);
-        if (!symbol)
+        if (!symTable.isDeclared(idToken.value))
         {
             cout << "Error: Variable '" << idToken.value << "' not declared at line "
                  << idToken.line << endl;
@@ -694,61 +674,62 @@ private:
         expect(T_ASSIGN);
 
         // Store new value
-        Token valueToken = tokens[pos];
-        parseExpression();
+        string value = parseExpression();
 
         // Update symbol table
-        symbolTable.update(idToken.value, valueToken.value);
+        symTable.declareVariable(idToken.value, value);
 
         expect(T_SEMICOLON);
+
+        string instruction = idToken.value + " = " + value;
+        icg.addInstruction(instruction);
+        return instruction;
     }
 
-    void parseExpression()
+    string parseExpression()
     {
-        // Parse the first operand (numbers, identifiers, booleans, or strings)
-        if (tokens[pos].type == T_NUM ||
-            tokens[pos].type == T_ID ||
-            tokens[pos].type == T_TRUE ||
-            tokens[pos].type == T_FALSE ||
-            tokens[pos].type == T_STRING) // Handles strings
-        {
-            expect(tokens[pos].type);
-        }
-        else
-        {
-            cout << "Syntax error in expression on line " << tokens[pos].line << endl;
-            exit(1);
-        }
+        string left = parsePrimary();
 
-        // Handle binary and comparison operations
         while (pos < tokens.size() &&
                (tokens[pos].type == T_PLUS ||
                 tokens[pos].type == T_MINUS ||
                 tokens[pos].type == T_MUL ||
                 tokens[pos].type == T_DIV ||
-                tokens[pos].type == T_EQUAL_EQUAL ||  
-                tokens[pos].type == T_NOT_EQUAL ||    
-                tokens[pos].type == T_LESS ||         
-                tokens[pos].type == T_GREATER ||      
-                tokens[pos].type == T_LESS_EQUAL ||   
-                tokens[pos].type == T_GREATER_EQUAL)) 
+                tokens[pos].type == T_EQUAL_EQUAL ||
+                tokens[pos].type == T_NOT_EQUAL ||
+                tokens[pos].type == T_LESS ||
+                tokens[pos].type == T_GREATER ||
+                tokens[pos].type == T_LESS_EQUAL ||
+                tokens[pos].type == T_GREATER_EQUAL))
         {
-            expect(tokens[pos].type); // Consume operator
+            TokenType op = tokens[pos].type;
+            expect(op);
+            string right = parsePrimary();
 
-            // Parse the next operand after the operator
-            if (tokens[pos].type == T_NUM ||
-                tokens[pos].type == T_ID ||
-                tokens[pos].type == T_TRUE ||
-                tokens[pos].type == T_FALSE ||
-                tokens[pos].type == T_STRING) // Handles strings
-            {
-                expect(tokens[pos].type);
-            }
-            else
-            {
-                cout << "Syntax error in expression on line " << tokens[pos].line << endl;
-                exit(1);
-            }
+            string temp = icg.newTemp();
+            icg.addInstruction(temp + " = " + left + " " + tokenTypeToString(op) + " " + right);
+            left = temp;
+        }
+
+        return left;
+    }
+
+    string parsePrimary()
+    {
+        if (tokens[pos].type == T_NUM ||
+            tokens[pos].type == T_ID ||
+            tokens[pos].type == T_TRUE ||
+            tokens[pos].type == T_FALSE ||
+            tokens[pos].type == T_STRING)
+        {
+            string value = tokens[pos].value;
+            expect(tokens[pos].type);
+            return value;
+        }
+        else
+        {
+            cout << "Syntax error in expression on line " << tokens[pos].line << endl;
+            exit(1);
         }
     }
 
@@ -760,6 +741,35 @@ private:
             exit(1);
         }
         pos++;
+    }
+
+    string tokenTypeToString(TokenType type)
+    {
+        switch (type)
+        {
+        case T_PLUS:
+            return "+";
+        case T_MINUS:
+            return "-";
+        case T_MUL:
+            return "*";
+        case T_DIV:
+            return "/";
+        case T_EQUAL_EQUAL:
+            return "==";
+        case T_NOT_EQUAL:
+            return "!=";
+        case T_LESS:
+            return "<";
+        case T_GREATER:
+            return ">";
+        case T_LESS_EQUAL:
+            return "<=";
+        case T_GREATER_EQUAL:
+            return ">=";
+        default:
+            return "";
+        }
     }
 };
 
@@ -797,7 +807,10 @@ int main(int argc, char *argv[])
     Lexer lexer(input);
     vector<Token> tokens = lexer.tokenize();
 
-    Parser parser(tokens);
+    SymbolTable symTable;
+    IntermediateCodeGnerator icg;
+
+    Parser parser(tokens, symTable, icg);
     parser.parseProgram();
 
     return 0;
