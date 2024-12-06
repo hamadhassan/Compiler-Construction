@@ -52,6 +52,4 @@ int day = 2;
         case 7:
             print("Sunday\n");
             break;
-        default:
-            print("Invalid day\n");
     }

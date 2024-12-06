@@ -38,6 +38,7 @@ enum TokenType
     T_BREAK,
     T_CONTINUE,
 
+
     // Assignment
     T_ASSIGN, // =
 
@@ -606,18 +607,50 @@ private:
 
     void parseSwitchStatement()
     {
-        expect(T_SWITCH);
-        expect(T_LPAREN);
-        parseExpression();
-        expect(T_RPAREN);
-        expect(T_LBRACE);
+        expect(T_SWITCH); // Consume the 'switch' keyword
+        expect(T_LPAREN); // Consume the opening parenthesis for the expression
 
+        // Parse the switch expression (condition for the switch)
+        string switchCondition = parseExpression();
+        expect(T_RPAREN); // Consume the closing parenthesis
+
+        expect(T_LBRACE); // Consume the opening brace for the block
+
+        string endLabel = icg.newTemp(); // Label for end of switch statement
+        bool hasDefault = false;         // Track if we have a default case
+
+        // Parse case statements
         while (tokens[pos].type == T_CASE)
         {
-            parseCaseStatement();
+            parseCaseStatement(switchCondition, endLabel);
         }
 
-        expect(T_RBRACE);
+        icg.addInstruction(endLabel + ":"); // Jump to end label after all cases
+
+        expect(T_RBRACE); // Consume the closing brace for the block
+    }
+    void parseCaseStatement(const string &switchCondition, const string &endLabel)
+    {
+        expect(T_CASE); // Consume the 'case' keyword
+
+        string caseValue = parseExpression(); // Parse the value for the case
+        expect(T_COLON);                      // Expect the colon after the case value
+
+        string caseLabel = icg.newTemp();                                                          // Generate a label for this case
+        icg.addInstruction("if (" + switchCondition + " != " + caseValue + ") goto " + caseLabel); // Check if this case matches
+        icg.addInstruction("goto " + endLabel);                                                    // If it doesn't match, jump to the end
+
+        icg.addInstruction(caseLabel + ":"); // Label for this case
+        parseStatement();                    // Parse the statement(s) for this case
+
+        // Check for the break statement inside the case block
+        if (tokens[pos].type == T_BREAK)
+        {
+            expect(T_BREAK);                        // Consume 'break'
+            expect(T_SEMICOLON);                    // Consume the semicolon after the break
+            icg.addInstruction("goto " + endLabel); // Exit the switch after the break
+        }
+        icg.addInstruction("goto " + endLabel); // After case execution, jump to the end
     }
 
     void parseCaseStatement()

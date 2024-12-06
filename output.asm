@@ -88,6 +88,52 @@ t8:
 	jmp t11
 t10:
 t11:
+	; Assignment
+	mov eax, 2
+	mov [day], eax
+	; Unhandled instruction: if (day != 1) goto t13
+	jmp t12
+t13:
+	; Unhandled instruction: print Monday\n
+	jmp t12
+	jmp t12
+	; Unhandled instruction: if (day != 2) goto t14
+	jmp t12
+t14:
+	; Unhandled instruction: print Tuesday\n
+	jmp t12
+	jmp t12
+	; Unhandled instruction: if (day != 3) goto t15
+	jmp t12
+t15:
+	; Unhandled instruction: print Wednesday\n
+	jmp t12
+	jmp t12
+	; Unhandled instruction: if (day != 4) goto t16
+	jmp t12
+t16:
+	; Unhandled instruction: print Thursday\n
+	jmp t12
+	jmp t12
+	; Unhandled instruction: if (day != 5) goto t17
+	jmp t12
+t17:
+	; Unhandled instruction: print Friday\n
+	jmp t12
+	jmp t12
+	; Unhandled instruction: if (day != 6) goto t18
+	jmp t12
+t18:
+	; Unhandled instruction: print Saturday\n
+	jmp t12
+	jmp t12
+	; Unhandled instruction: if (day != 7) goto t19
+	jmp t12
+t19:
+	; Unhandled instruction: print Sunday\n
+	jmp t12
+	jmp t12
+t12:
 
 	; Program exit
 	push 0
