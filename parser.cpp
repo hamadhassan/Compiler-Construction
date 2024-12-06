@@ -4,6 +4,7 @@
 #include <cctype>
 #include <map>
 #include <fstream>
+#include <sstream>
 #include <unordered_map>
 
 using namespace std;
@@ -370,24 +371,29 @@ public:
     }
 };
 
-class SymbolTable {
+class SymbolTable
+{
 public:
-
-    void declareVariable(const string &name, const string &type) {
-        if (symbolTable.find(name) != symbolTable.end()) {
+    void declareVariable(const string &name, const string &type)
+    {
+        if (symbolTable.find(name) != symbolTable.end())
+        {
             throw runtime_error("Semantic error: Variable '" + name + "' is already declared.");
         }
         symbolTable[name] = type;
     }
 
-    string getVariableType(const string &name) {
-        if (symbolTable.find(name) == symbolTable.end()) {
+    string getVariableType(const string &name)
+    {
+        if (symbolTable.find(name) == symbolTable.end())
+        {
             throw runtime_error("Semantic error: Variable '" + name + "' is not declared.");
         }
         return symbolTable[name];
     }
 
-    bool isDeclared(const string &name) const {
+    bool isDeclared(const string &name) const
+    {
         return symbolTable.find(name) != symbolTable.end();
     }
 
@@ -395,23 +401,36 @@ private:
     map<string, string> symbolTable;
 };
 
-class IntermediateCodeGnerator {
+class IntermediateCodeGnerator
+{
 public:
     vector<string> instructions;
     int tempCount = 0;
 
-    string newTemp() {
+    string newTemp()
+    {
         return "t" + to_string(tempCount++);
     }
 
-    void addInstruction(const string &instr) {
+    void addInstruction(const string &instr)
+    {
         instructions.push_back(instr);
     }
 
-    void printInstructions() {
-        for (const auto &instr : instructions) {
+    void printInstructions()
+    {
+        cout << "Intermediate Code Generated" << endl;
+        cout << "------------------------------------------------" << endl;
+        for (const auto &instr : instructions)
+        {
             cout << instr << endl;
         }
+        cout << endl;
+    }
+
+    vector<string> getInstructions()
+    {
+        return this->instructions;
     }
 };
 
@@ -433,8 +452,17 @@ public:
         {
             parseStatement();
         }
+        cout << endl;
+        cout << "------------------------------------------------" << endl;
         cout << "Parsing completed successfully! No Syntax Error" << endl;
+        cout << "------------------------------------------------" << endl;
+
         icg.printInstructions();
+    }
+
+    vector<string> getIntermediateCode()
+    {
+        return icg.getInstructions();
     }
 
 private:
@@ -773,6 +801,231 @@ private:
     }
 };
 
+class AssemblyGenerator
+{
+private:
+    vector<string> intermediateCode;
+    unordered_map<string, string> variableTypes;
+    unordered_map<string, string> variableDeclarations;
+    ofstream outputFile;
+    int labelCounter;
+    int tempCounter;
+
+public:
+    AssemblyGenerator(const vector<string> &icg)
+        : intermediateCode(icg), labelCounter(0), tempCounter(0)
+    {
+        outputFile.open("output.asm");
+        if (!outputFile.is_open())
+        {
+            throw runtime_error("Could not open output.asm file");
+        }
+    }
+
+    void generateAssembly()
+    {
+        writeHeader();
+        writeDataSection();
+        writeCodeSection();
+        outputFile.close();
+        cout << "Assembly generated in output.asm file" << endl;
+    }
+
+private:
+    void writeHeader()
+    {
+        outputFile << ".586\n";
+        outputFile << ".model flat, c\n";
+        outputFile << ".stack 4096\n\n";
+
+        outputFile << "extern printf:near\n";
+        outputFile << "extern exit:near\n\n";
+    }
+
+    void writeDataSection()
+    {
+        outputFile << ".data\n";
+
+        outputFile << "\t_printIntFormat BYTE \"%d\", 0\n";
+        outputFile << "\t_printFloatFormat BYTE \"%f\", 0\n";
+        outputFile << "\t_printStrFormat BYTE \"%s\", 0\n\n";
+
+        // Declare temporary variables and variables
+        for (const auto &decl : variableDeclarations)
+        {
+            const string &varName = decl.first;
+            const string &varType = decl.second;
+
+            if (varType == "int")
+            {
+                outputFile << "\t" << varName << " DWORD 0\n";
+            }
+            else if (varType == "float" || varType == "double")
+            {
+                outputFile << "\t" << varName << " REAL4 0.0\n";
+            }
+        }
+        outputFile << "\n";
+    }
+
+    void writeCodeSection()
+    {
+        outputFile << ".code\n";
+        outputFile << "main PROC\n";
+
+        for (const auto &instruction : intermediateCode)
+        {
+            processInstruction(instruction);
+        }
+
+        outputFile << "\n\t; Program exit\n";
+        outputFile << "\tpush 0\n";
+        outputFile << "\tcall exit\n";
+        outputFile << "main ENDP\n";
+        outputFile << "END main\n";
+    }
+
+    void processInstruction(const string &instruction)
+    {
+        istringstream iss(instruction);
+        string token1, token2, token3, token4;
+        iss >> token1;
+
+        // Label definition
+        if (token1.back() == ':')
+        {
+            outputFile << token1 << "\n";
+            return;
+        }
+
+        // Conditional jump
+        if (token1 == "ifFalse")
+        {
+            processConditionalJump(instruction);
+            return;
+        }
+
+        // Unconditional jump
+        if (token1 == "goto")
+        {
+            iss >> token2;
+            outputFile << "\tjmp " << token2 << "\n";
+            return;
+        }
+
+        // Assignment or comparison
+        if (instruction.find(" = ") != string::npos)
+        {
+            processAssignmentOrComparison(instruction);
+            return;
+        }
+
+        // Unhandled instruction
+        outputFile << "\t; Unhandled instruction: " << instruction << "\n";
+    }
+
+    void processAssignmentOrComparison(const string &instruction)
+    {
+        istringstream iss(instruction);
+        string left, eq, right, op;
+        iss >> left >> eq;
+
+        // Check if it's a simple assignment
+        if (iss >> right && right.find_first_not_of("0123456789.-") == string::npos)
+        {
+            processSimpleAssignment(left, right);
+            return;
+        }
+
+        // Check if it's a comparison
+        iss.clear();
+        iss.str(instruction);
+        iss >> left >> eq >> right >> op >> right;
+
+        if (isComparisonOperator(op))
+        {
+            processComparison(left, op, right);
+            return;
+        }
+
+        outputFile << "\t; Unhandled complex assignment: " << instruction << "\n";
+    }
+
+    void processSimpleAssignment(const string &left, const string &right)
+    {
+        // Mark variable as declared
+        if (variableDeclarations.find(left) == variableDeclarations.end())
+        {
+            variableDeclarations[left] = isFloat(right) ? "float" : "int";
+        }
+
+        outputFile << "\t; Assignment\n";
+        outputFile << "\tmov eax, " << right << "\n";
+        outputFile << "\tmov [" << left << "], eax\n";
+    }
+
+    void processComparison(const string &dest, const string &op, const string &right)
+    {
+        // Mark variables
+        variableDeclarations[dest] = "int";
+
+        outputFile << "\t; Comparison\n";
+        outputFile << "\tmov eax, [" << dest << "]\n";
+        outputFile << "\tcmp eax, " << right << "\n";
+
+        string jumpInstruction;
+        if (op == "==")
+            jumpInstruction = "sete";
+        else if (op == "!=")
+            jumpInstruction = "setne";
+        else if (op == "<")
+            jumpInstruction = "setl";
+        else if (op == ">")
+            jumpInstruction = "setg";
+        else if (op == "<=")
+            jumpInstruction = "setle";
+        else if (op == ">=")
+            jumpInstruction = "setge";
+
+        outputFile << "\t" << jumpInstruction << " al\n";
+        outputFile << "\tmovzx eax, al\n";
+        outputFile << "\tmov [" << dest << "], eax\n";
+    }
+
+    void processConditionalJump(const string &instruction)
+    {
+        istringstream iss(instruction);
+        string ifFalse, condition, goto_, label;
+        iss >> ifFalse >> condition >> goto_ >> label;
+
+        outputFile << "\t; Conditional jump\n";
+        outputFile << "\tmov eax, [" << condition << "]\n";
+        outputFile << "\ttest eax, eax\n";
+        outputFile << "\tjz " << label << "\n";
+    }
+
+    bool isComparisonOperator(const string &op)
+    {
+        return op == "==" || op == "!=" || op == "<" || op == ">" ||
+               op == "<=" || op == ">=";
+    }
+
+    bool isFloat(const string &value)
+    {
+        return value.find('.') != string::npos;
+    }
+
+    string newLabel()
+    {
+        return "Label_" + to_string(labelCounter++);
+    }
+
+    string newTemp()
+    {
+        return "temp_" + to_string(tempCounter++);
+    }
+};
+
 int main(int argc, char *argv[])
 {
     // Check if the user provided a filename
@@ -799,8 +1052,9 @@ int main(int argc, char *argv[])
         input.append("\n");
     }
     file.close();
-
-    cout << "Complete code" << endl;
+    cout << endl;
+    cout << "Given code" << endl;
+    cout << "------------------------------------------------" << endl;
     cout << input << endl;
 
     // Main Parsing
@@ -812,6 +1066,10 @@ int main(int argc, char *argv[])
 
     Parser parser(tokens, symTable, icg);
     parser.parseProgram();
+    auto intermediateCode = parser.getIntermediateCode();
+    cout << "------------------------------------------------" << endl;
+    AssemblyGenerator asmGen(intermediateCode);
+    asmGen.generateAssembly();
 
     return 0;
 }
