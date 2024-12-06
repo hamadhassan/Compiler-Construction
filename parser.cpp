@@ -371,6 +371,8 @@ public:
 
 class SymbolTable
 {
+private:
+    map<string, string> symbolTable;
 public:
     void declareVariable(const string &name, const string &type)
     {
@@ -394,9 +396,6 @@ public:
     {
         return symbolTable.find(name) != symbolTable.end();
     }
-
-private:
-    map<string, string> symbolTable;
 };
 
 class IntermediateCodeGnerator
@@ -626,6 +625,7 @@ private:
 
         expect(T_RBRACE); // Consume the closing brace for the block
     }
+    
     void parseCaseStatement(const string &switchCondition, const string &endLabel)
     {
         expect(T_CASE); // Consume the 'case' keyword
@@ -725,6 +725,7 @@ private:
         }
         expect(T_RBRACE);
     }
+    
     string parseStringOrCharLiteral()
     {
         if (tokens[pos].type == T_STRING)
