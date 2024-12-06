@@ -53,3 +53,8 @@ int day = 2;
             print("Sunday\n");
             break;
     }
+
+agar (2 < 3)
+{
+    int f = 4;
+}

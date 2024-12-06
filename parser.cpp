@@ -38,7 +38,6 @@ enum TokenType
     T_BREAK,
     T_CONTINUE,
 
-
     // Assignment
     T_ASSIGN, // =
 
@@ -142,7 +141,7 @@ public:
                     tokens.push_back(Token{T_FALSE, word, line});
                 else if (word == "char")
                     tokens.push_back(Token{T_CHAR, word, line});
-                else if (word == "if")
+                else if (word == "if" || word == "agar")
                     tokens.push_back(Token{T_IF, word, line});
                 else if (word == "else")
                     tokens.push_back(Token{T_ELSE, word, line});
@@ -160,8 +159,6 @@ public:
                     tokens.push_back(Token{T_BREAK, word, line});
                 else if (word == "continue")
                     tokens.push_back(Token{T_CONTINUE, word, line});
-                else if (word == "agar")
-                    tokens.push_back(Token{T_AGAR, word, line});
                 else if (word == "print")
                     tokens.push_back(Token{T_PRINT, word, line});
                 else

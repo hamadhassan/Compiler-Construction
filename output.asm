@@ -134,6 +134,19 @@ t19:
 	jmp t12
 	jmp t12
 t12:
+	; Assignment
+	mov eax, 2
+	mov [t20], eax
+	; Conditional jump
+	mov eax, [t20]
+	test eax, eax
+	jz t21
+	; Assignment
+	mov eax, 4
+	mov [f], eax
+	jmp t22
+t21:
+t22:
 
 	; Program exit
 	push 0
