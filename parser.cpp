@@ -542,15 +542,43 @@ private:
         expect(T_FOR);
         expect(T_LPAREN);
 
-        parseDeclaration();
-        expect(T_SEMICOLON);
+        // Handle initialization: declaration, assignment, or empty
+        if (tokens[pos].type == T_INT || tokens[pos].type == T_FLOAT || tokens[pos].type == T_DOUBLE ||
+            tokens[pos].type == T_STRING || tokens[pos].type == T_BOOL || tokens[pos].type == T_CHAR)
+        {
+            parseDeclaration(); // Handle variable declaration
+        }
+        else if (tokens[pos].type == T_ID)
+        {
+            parseAssignment(); // Handle assignment to existing variable
+        }
+        else
+        {
+            expect(T_SEMICOLON); // Allow empty initialization
+        }
 
+        // Parse the loop condition
         string condition = parseExpression();
         expect(T_SEMICOLON);
 
-        string increment = parseAssignment();
+        // Handle the increment part of the for loop
+        string increment;
+        if (tokens[pos].type != T_RPAREN)
+        {
+            // Special handling for i++ type of expressions
+            if (tokens[pos].type == T_ID && tokens[pos + 1].type == T_PLUS && tokens[pos + 2].type == T_PLUS)
+            {
+                increment = tokens[pos].value + tokens[pos + 1].value + tokens[pos + 2].value; // Handle i++
+                pos += 3;                                                                      // Skip the `i++`
+            }
+            else
+            {
+                increment = parseExpression(); // Parse regular expression if not i++
+            }
+        }
         expect(T_RPAREN);
 
+        // Parse the loop body
         expect(T_LBRACE);
 
         string startLabel = icg.newTemp();
@@ -564,7 +592,12 @@ private:
             parseStatement();
         }
 
-        icg.addInstruction(increment);
+        // If there is an increment statement, add it to the instructions
+        if (!increment.empty())
+        {
+            icg.addInstruction(increment);
+        }
+
         icg.addInstruction("goto " + startLabel);
         icg.addInstruction(endLabel + ":");
 
@@ -662,27 +695,54 @@ private:
         }
         expect(T_RBRACE);
     }
+    string parseStringOrCharLiteral()
+    {
+        if (tokens[pos].type == T_STRING)
+        {
+            string strValue = tokens[pos].value;
+            expect(T_STRING);
+            return "\"" + strValue + "\""; // Add quotes for string literals
+        }
+        else if (tokens[pos].type == T_CHAR)
+        {
+            string charValue = tokens[pos].value;
+            expect(T_CHAR);
+            return "'" + charValue + "'"; // Add quotes for char literals
+        }
+        else
+        {
+            cout << "Syntax error: expected string or char literal at line " << tokens[pos].line << endl;
+            exit(1);
+        }
+    }
 
     void parseDeclaration()
     {
         TokenType varType = tokens[pos].type;
-        expect(varType);
+        expect(varType); // Consume the data type token (e.g., T_INT, T_STRING)
 
         // Store identifier token
         Token idToken = tokens[pos];
-        expect(T_ID);
+        expect(T_ID); // Consume the variable identifier
 
-        expect(T_ASSIGN);
+        expect(T_ASSIGN); // Expect '=' for initialization
 
-        // Store value token
-        string value = parseExpression();
+        // Handle value assignment
+        string value;
+        if (varType == T_STRING || varType == T_CHAR)
+        {
+            value = parseStringOrCharLiteral(); // Parse string or char literal
+        }
+        else
+        {
+            value = parseExpression(); // Parse other types normally
+        }
 
         // Create and insert symbol
         symTable.declareVariable(idToken.value, value);
-
         icg.addInstruction(idToken.value + " = " + value);
 
-        expect(T_SEMICOLON);
+        expect(T_SEMICOLON); // Ensure proper end of declaration
     }
 
     string parseAssignment()

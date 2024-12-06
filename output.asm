@@ -22,6 +22,12 @@ main PROC
 	; Assignment
 	mov eax, 5.89
 	mov [c], eax
+	; Assignment
+	mov eax, 5.9
+	mov [d], eax
+	; Unhandled complex assignment: str = "str"
+	; Unhandled complex assignment: bol = true
+	; Unhandled complex assignment: ch = 'a'
 	; Comparison
 	mov eax, [t0]
 	cmp eax, b
@@ -52,18 +58,36 @@ t4:
 	jmp t4
 t5:
 	; Assignment
-	mov eax, 2
+	mov eax, 0
+	mov [i], eax
+	; Comparison
+	mov eax, [t6]
+	cmp eax, 5
+	setl al
+	movzx eax, al
 	mov [t6], eax
+t7:
 	; Conditional jump
 	mov eax, [t6]
 	test eax, eax
-	jz t7
+	jz t8
+	; Unhandled instruction: print abc
+	; Unhandled instruction: i++
+	jmp t7
+t8:
+	; Assignment
+	mov eax, 2
+	mov [t9], eax
+	; Conditional jump
+	mov eax, [t9]
+	test eax, eax
+	jz t10
 	; Assignment
 	mov eax, 1
-	mov [d], eax
-	jmp t8
-t7:
-t8:
+	mov [e], eax
+	jmp t11
+t10:
+t11:
 
 	; Program exit
 	push 0
