@@ -83,6 +83,68 @@ struct Token
     Token(TokenType type, const string &value, int line) : type(type), value(value), line(line) {}
 };
 
+class SymbolTable
+{
+private:
+    map<string, string> symbolTable;
+public:
+    void declareVariable(const string &name, const string &type)
+    {
+        if (symbolTable.find(name) != symbolTable.end())
+        {
+            throw runtime_error("Semantic error: Variable '" + name + "' is already declared.");
+        }
+        symbolTable[name] = type;
+    }
+
+    string getVariableType(const string &name)
+    {
+        if (symbolTable.find(name) == symbolTable.end())
+        {
+            throw runtime_error("Semantic error: Variable '" + name + "' is not declared.");
+        }
+        return symbolTable[name];
+    }
+
+    bool isDeclared(const string &name) const
+    {
+        return symbolTable.find(name) != symbolTable.end();
+    }
+};
+
+class IntermediateCodeGnerator
+{
+public:
+    vector<string> instructions;
+    int tempCount = 0;
+
+    string newTemp()
+    {
+        return "t" + to_string(tempCount++);
+    }
+
+    void addInstruction(const string &instr)
+    {
+        instructions.push_back(instr);
+    }
+
+    void printInstructions()
+    {
+        cout << "Intermediate Code Generated" << endl;
+        cout << "------------------------------------------------" << endl;
+        for (const auto &instr : instructions)
+        {
+            cout << instr << endl;
+        }
+        cout << endl;
+    }
+
+    vector<string> getInstructions()
+    {
+        return this->instructions;
+    }
+};
+
 class Lexer
 {
 private:
@@ -366,68 +428,6 @@ public:
     char peekNext()
     {
         return pos + 1 < src.size() ? src[pos + 1] : '\0';
-    }
-};
-
-class SymbolTable
-{
-private:
-    map<string, string> symbolTable;
-public:
-    void declareVariable(const string &name, const string &type)
-    {
-        if (symbolTable.find(name) != symbolTable.end())
-        {
-            throw runtime_error("Semantic error: Variable '" + name + "' is already declared.");
-        }
-        symbolTable[name] = type;
-    }
-
-    string getVariableType(const string &name)
-    {
-        if (symbolTable.find(name) == symbolTable.end())
-        {
-            throw runtime_error("Semantic error: Variable '" + name + "' is not declared.");
-        }
-        return symbolTable[name];
-    }
-
-    bool isDeclared(const string &name) const
-    {
-        return symbolTable.find(name) != symbolTable.end();
-    }
-};
-
-class IntermediateCodeGnerator
-{
-public:
-    vector<string> instructions;
-    int tempCount = 0;
-
-    string newTemp()
-    {
-        return "t" + to_string(tempCount++);
-    }
-
-    void addInstruction(const string &instr)
-    {
-        instructions.push_back(instr);
-    }
-
-    void printInstructions()
-    {
-        cout << "Intermediate Code Generated" << endl;
-        cout << "------------------------------------------------" << endl;
-        for (const auto &instr : instructions)
-        {
-            cout << instr << endl;
-        }
-        cout << endl;
-    }
-
-    vector<string> getInstructions()
-    {
-        return this->instructions;
     }
 };
 
@@ -891,6 +891,7 @@ private:
         }
     }
 };
+
 
 class AssemblyGenerator
 {

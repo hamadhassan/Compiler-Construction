@@ -85,68 +85,82 @@ t8:
 	; Assignment
 	mov eax, 1
 	mov [e], eax
+	; Comparison
+	mov eax, [t12]
+	cmp eax, 1
+	sete al
+	movzx eax, al
+	mov [t12], eax
+	; Conditional jump
+	mov eax, [t12]
+	test eax, eax
+	jz t13
+	; Unhandled instruction: print 1
+	jmp t14
+t13:
+t14:
 	jmp t11
 t10:
 t11:
 	; Assignment
 	mov eax, 2
 	mov [day], eax
-	; Unhandled instruction: if (day != 1) goto t13
-	jmp t12
-t13:
-	; Unhandled instruction: print Monday\n
-	jmp t12
-	jmp t12
-	; Unhandled instruction: if (day != 2) goto t14
-	jmp t12
-t14:
-	; Unhandled instruction: print Tuesday\n
-	jmp t12
-	jmp t12
-	; Unhandled instruction: if (day != 3) goto t15
-	jmp t12
-t15:
-	; Unhandled instruction: print Wednesday\n
-	jmp t12
-	jmp t12
-	; Unhandled instruction: if (day != 4) goto t16
-	jmp t12
+	; Unhandled instruction: if (day != 1) goto t16
+	jmp t15
 t16:
-	; Unhandled instruction: print Thursday\n
-	jmp t12
-	jmp t12
-	; Unhandled instruction: if (day != 5) goto t17
-	jmp t12
+	; Unhandled instruction: print Monday\n
+	jmp t15
+	jmp t15
+	; Unhandled instruction: if (day != 2) goto t17
+	jmp t15
 t17:
-	; Unhandled instruction: print Friday\n
-	jmp t12
-	jmp t12
-	; Unhandled instruction: if (day != 6) goto t18
-	jmp t12
+	; Unhandled instruction: print Tuesday\n
+	jmp t15
+	jmp t15
+	; Unhandled instruction: if (day != 3) goto t18
+	jmp t15
 t18:
-	; Unhandled instruction: print Saturday\n
-	jmp t12
-	jmp t12
-	; Unhandled instruction: if (day != 7) goto t19
-	jmp t12
+	; Unhandled instruction: print Wednesday\n
+	jmp t15
+	jmp t15
+	; Unhandled instruction: if (day != 4) goto t19
+	jmp t15
 t19:
+	; Unhandled instruction: print Thursday\n
+	jmp t15
+	jmp t15
+	; Unhandled instruction: if (day != 5) goto t20
+	jmp t15
+t20:
+	; Unhandled instruction: print Friday\n
+	jmp t15
+	jmp t15
+	; Unhandled instruction: if (day != 6) goto t21
+	jmp t15
+t21:
+	; Unhandled instruction: print Saturday\n
+	jmp t15
+	jmp t15
+	; Unhandled instruction: if (day != 7) goto t22
+	jmp t15
+t22:
 	; Unhandled instruction: print Sunday\n
-	jmp t12
-	jmp t12
-t12:
+	jmp t15
+	jmp t15
+t15:
 	; Assignment
 	mov eax, 2
-	mov [t20], eax
+	mov [t23], eax
 	; Conditional jump
-	mov eax, [t20]
+	mov eax, [t23]
 	test eax, eax
-	jz t21
+	jz t24
 	; Assignment
 	mov eax, 4
 	mov [f], eax
-	jmp t22
-t21:
-t22:
+	jmp t25
+t24:
+t25:
 
 	; Program exit
 	push 0
